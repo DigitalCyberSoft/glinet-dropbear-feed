@@ -19,7 +19,8 @@ SRC=$3
 OUT=$4
 
 # ZT: zig target. HOST: autoconf --host triplet. CPU: zig -mcpu.
-#   arm:  ARMv6KZ without an FPU (arm1176jz-s). It runs on every ARMv7 core
+#   arm:  ARMv6 without an FPU (arm1176jz-s; the binary is tagged
+#         Tag_CPU_arch v6). It runs on every ARMv7 core
 #         (A7/A9/A15) whether or not it has VFP, NEON or hardware divide.
 #         musleabi only sets the soft-float calling convention: with
 #         -mcpu=cortex_a9 zig still emitted VFPv3 code (Tag_FP_arch: VFPv3).

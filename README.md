@@ -25,7 +25,7 @@ has also had eight releases since 2024.86, several with security fixes.
 | Patches | OpenWrt's full Dropbear patch set, unmodified ([patches/openwrt/SOURCE](patches/openwrt/SOURCE)); `100-pubkey_path.patch` keeps root's keys in `/etc/dropbear/authorized_keys` |
 | Options | exactly what OpenWrt's package generates by default ([config/localoptions.h](config/localoptions.h)): ECDSA, Ed25519, FIDO/sk keys, curve25519 + sntrup761 key exchange; no X11, DSS, SHA-1 or CBC |
 | Toolchain | `zig cc` with its bundled musl, fully **static**, so one binary per CPU family runs on every GL firmware line regardless of its libc |
-| Targets | aarch64 → `aarch64_cortex-a53`; ARM soft-float, ARMv6KZ baseline without FPU (runs on any ARMv7 core) → `arm_cortex-a7`, `arm_cortex-a7_neon-vfpv4`, `arm_cortex-a9_vfpv3-d16`, `arm_cortex-a15_neon-vfpv4`; MIPS32r2 soft-float → `mips_24kc`; MIPSel → `mipsel_24kc` |
+| Targets | aarch64 → `aarch64_cortex-a53`; ARM soft-float, ARMv6 baseline without FPU (runs on any ARMv7 core) → `arm_cortex-a7`, `arm_cortex-a7_neon-vfpv4`, `arm_cortex-a9_vfpv3-d16`, `arm_cortex-a15_neon-vfpv4`; MIPS32r2 soft-float → `mips_24kc`; MIPSel → `mipsel_24kc` |
 
 The package, `glinet-dropbear`, installs the binary as
 `/usr/lib/glinet-dropbear/dropbear`. Its postinst runs `glinet-dropbear apply`,
@@ -78,7 +78,7 @@ glinet-dropbear apply     # forward again
 2. **build** (aarch64, arm, mips, mipsel), each:
    - `tools/fetch-source.sh`: download, GPG-verify (and sha256 for the pin)
    - `tools/build.sh`: patches, options, `autoreconf`, static zig build
-   - `tools/check-binary.sh`: machine, endianness, static, ARMv6K or later
+   - `tools/check-binary.sh`: machine, endianness, static, ARMv6 or later
      with no VFP/NEON on ARM, soft-float on MIPS, required algorithms and
      `/etc/dropbear` compiled in
    - `tools/smoke-test.sh`: under qemu-user on a restrictive CPU model

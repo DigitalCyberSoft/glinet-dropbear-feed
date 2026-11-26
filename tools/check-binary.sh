@@ -18,7 +18,7 @@ case "$ARCH" in
 		echo "$HDR" | grep -q 'Machine:.*AArch64' || fail "not AArch64" ;;
 	arm)
 		echo "$HDR" | grep -q 'Machine:.*ARM$' || fail "not 32-bit ARM"
-		echo "$ATTR" | grep -qE 'Tag_CPU_arch: (v6KZ|v6K|v7)$' || fail "not ARMv6K or later: $(echo "$ATTR" | grep Tag_CPU_arch)"
+		echo "$ATTR" | grep -qE 'Tag_CPU_arch: (v6|v6K|v6KZ|v7)$' || fail "not ARMv6 or later: $(echo "$ATTR" | grep Tag_CPU_arch)"
 		if echo "$ATTR" | grep -qE 'Tag_(FP_arch|Advanced_SIMD_arch|ABI_VFP_args)'; then
 			fail "uses VFP/NEON: $(echo "$ATTR" | grep -E 'Tag_(FP_arch|Advanced_SIMD_arch|ABI_VFP_args)' | tr '\n' ' ')"
 		fi ;;
