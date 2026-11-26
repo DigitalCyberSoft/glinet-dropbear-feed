@@ -19,12 +19,14 @@ SRC=$3
 OUT=$4
 
 # ZT: zig target. HOST: autoconf --host triplet. CPU: zig -mcpu.
-#   arm:  Cortex-A9 baseline (ARMv7-A without hardware divide) runs on A7/A9/A15;
-#         musleabi = soft float, so no VFP/NEON instructions.
+#   arm:  ARMv6KZ without an FPU (arm1176jz-s). It runs on every ARMv7 core
+#         (A7/A9/A15) whether or not it has VFP, NEON or hardware divide.
+#         musleabi only sets the soft-float calling convention: with
+#         -mcpu=cortex_a9 zig still emitted VFPv3 code (Tag_FP_arch: VFPv3).
 #   mips: MIPS32r2 soft float, as OpenWrt's 24Kc targets (no FPU).
 case "$ARCH" in
 	aarch64) ZT=aarch64-linux-musl;    HOST=aarch64-linux-musl;  CPU=generic ;;
-	arm)     ZT=arm-linux-musleabi;    HOST=arm-linux-musleabi;  CPU=cortex_a9 ;;
+	arm)     ZT=arm-linux-musleabi;    HOST=arm-linux-musleabi;  CPU=arm1176jz_s ;;
 	mips)    ZT=mips-linux-musleabi;   HOST=mips-linux-musl;     CPU=mips32r2 ;;
 	mipsel)  ZT=mipsel-linux-musleabi; HOST=mipsel-linux-musl;   CPU=mips32r2 ;;
 	*) echo "build: unknown arch '$ARCH'" >&2; exit 2 ;;
