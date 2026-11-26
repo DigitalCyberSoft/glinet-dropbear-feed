@@ -4,18 +4,112 @@ A signed opkg feed with a current **Dropbear SSH** for GL.iNet routers, built
 with OpenWrt's own patches and options, with **ECDSA and FIDO/`sk-` keys
 enabled**.
 
-## Why
+## In short
 
-GL firmware ships an older Dropbear built without ECDSA. On a GL-E5800
-(firmware 4.10.4, Dropbear 2024.86) the server advertises only
+- GL.iNet firmware ships an older SSH server (Dropbear) built **without
+  ECDSA**. If you log in with a FIDO security key such as a YubiKey, its
+  `sk-ecdsa` key is refused by the router, even after you add it to
+  `authorized_keys` or the admin panel.
+- This feed installs a current Dropbear (2026.94), built the way OpenWrt
+  builds it, with ECDSA and security-key support switched on.
+- It swaps **only the SSH server program**. If the new server does not come up,
+  the original is put back automatically, and removing the package restores it
+  too. The firmware's SSH settings are not touched.
+- The feed is signed, and the installer only trusts the key with fingerprint
+  `4fbc7fcb4ae88dd6`.
+
+## Do you need it?
+
+Ask your router which key types it accepts. This runs only the connection
+handshake, so it does not log in or ask for a password:
+
+```sh
+ssh -vvv -o BatchMode=yes -o PreferredAuthentications=none root@192.168.8.1 exit 2>&1 | grep server-sig-algs
+```
+
+A GL-E5800 on firmware 4.10.4 (Dropbear 2024.86) answers
 
 ```
 server-sig-algs=<ssh-ed25519,sk-ssh-ed25519@openssh.com,rsa-sha2-256,ssh-rsa>
 ```
 
-so `ecdsa-sha2-*` and `sk-ecdsa-sha2-nistp256@openssh.com` (most FIDO security
-keys) cannot log in, even when listed in `authorized_keys`. Upstream Dropbear
-has also had eight releases since 2024.86, several with security fixes.
+If the list has no `sk-ecdsa-sha2-nistp256@openssh.com` and you want to use an
+ECDSA security key (or any `ecdsa-sha2-*` key), you need this feed. With it
+installed the router also offers `ecdsa-sha2-nistp256` and
+`sk-ecdsa-sha2-nistp256@openssh.com`. Upstream Dropbear has also had eight
+releases since 2024.86, several with security fixes.
+
+## Install
+
+On the router, as root:
+
+```sh
+curl -fsSL https://digitalcybersoft.github.io/glinet-dropbear-feed/setup.sh -o /tmp/setup.sh
+sh /tmp/setup.sh --dry-run
+sh /tmp/setup.sh
+```
+
+The installer picks the router's architecture, downloads `feed.pub`, refuses
+it unless its fingerprint is **`4fbc7fcb4ae88dd6`**, installs it as
+`/etc/opkg/keys/4fbc7fcb4ae88dd6`, adds the feed, runs a plain `opkg update`
+(the feed's `Packages.sig` must verify) and installs `glinet-dropbear`.
+`--dry-run` shows all of that and changes nothing.
+
+```sh
+glinet-dropbear status    # active / packaged / saved firmware versions
+glinet-dropbear revert    # back to the firmware's Dropbear
+glinet-dropbear apply     # forward again
+opkg remove glinet-dropbear   # uninstall; restores the firmware's Dropbear
+```
+
+## Using a security key afterwards
+
+1. On your computer, create the key on the security key:
+   `ssh-keygen -t ecdsa-sk` (or `-t ed25519-sk` if your security key supports
+   Ed25519; GL's own Dropbear also advertises that type).
+2. Add the `.pub` line to the router: in the admin panel with
+   [glinet-sshkeymanagement](https://github.com/DigitalCyberSoft/glinet-sshkeymanagement)
+   (System → SSH Keys), or by appending it to `/etc/dropbear/authorized_keys`.
+3. `ssh root@192.168.8.1` and touch the key when it blinks.
+
+Keep password login enabled until a key login has worked.
+
+## What to expect
+
+**Can this lock me out?** The package installs the new binary next to the old
+one and switches only after checking that the new one runs on your CPU. It
+then restarts the SSH service and keeps the new binary only if a server running
+it is listening; otherwise it puts the firmware's binary back and restarts
+again. Your login methods stay as they were: if password login works today, it
+still works.
+
+**Will my SSH client warn about a changed host key?** No. The new server reads
+the same host keys from `/etc/dropbear` that the firmware's Dropbear created.
+
+**What happens on a firmware upgrade?** The upgrade replaces the system files,
+so the router goes back to GL's Dropbear and forgets this package. Run the
+installer again afterwards.
+
+**How do updates arrive?** CI checks every day for a new upstream Dropbear
+release, then builds, tests, signs and publishes it. On the router:
+`opkg update` (plain, without `--force-signature`), then
+`opkg upgrade glinet-dropbear`.
+
+**What about my other feeds?** Unlike the other glinet-* feeds this one is
+signed, so never use `--force-signature` with it: that switches the check off.
+A plain `opkg update` drops the package lists of any unsigned feeds you also
+use until their next forced update. Installed packages are not affected.
+
+**Why not replace GL's `dropbear` package?** Keeping it installed keeps GL's
+init script and `/etc/config/dropbear` as they are, avoids a package conflict,
+and makes undo a plain file restore.
+
+**What am I trusting?** The upstream Dropbear source (GPG-verified against the
+pinned release key), OpenWrt's patches, the zig toolchain (sha256-pinned),
+GitHub Actions, and whoever controls this repository. The signing key is a
+secret of this repository's `github-pages` environment, so the repository owner
+can publish signed builds. The pinned fingerprint stops someone swapping in a
+different key; it does not protect against a compromised GitHub account.
 
 ## What it builds
 
@@ -37,37 +131,8 @@ which:
 4. waits until a dropbear running the new file is listening, and otherwise
    **puts the firmware binary back** and restarts again.
 
-The firmware's init script and `/etc/config/dropbear` are not touched, and
-`dbclient`, `dropbearkey` and `scp` are symlinks to the same binary.
-`opkg remove glinet-dropbear` restores the firmware's binary. A firmware
-upgrade also returns to the firmware's own Dropbear, after which you can
-reinstall from the feed.
-
-## Install
-
-On the router, as root:
-
-```sh
-curl -fsSL https://digitalcybersoft.github.io/glinet-dropbear-feed/setup.sh -o /tmp/setup.sh
-sh /tmp/setup.sh --dry-run
-sh /tmp/setup.sh
-```
-
-The installer picks the device's architecture, downloads `feed.pub`, refuses it
-unless its fingerprint is **`4fbc7fcb4ae88dd6`**, installs it as
-`/etc/opkg/keys/4fbc7fcb4ae88dd6`, adds the feed, runs a plain `opkg update`
-(the feed's `Packages.sig` must verify) and installs `glinet-dropbear`.
-
-Unlike the other glinet-* feeds this one is signed, so **never** use
-`--force-signature` with it: that would disable the check. A plain
-`opkg update` drops the lists of any unsigned feeds you also use until their
-next forced update; that does not affect installed packages.
-
-```sh
-glinet-dropbear status    # active / packaged / saved firmware versions
-glinet-dropbear revert    # back to the firmware's Dropbear
-glinet-dropbear apply     # forward again
-```
+`dbclient`, `dropbearkey` and `scp` are symlinks to the same binary, so they
+switch too.
 
 ## How it is built and published
 
@@ -94,7 +159,7 @@ glinet-dropbear apply     # forward again
 The signing key is stored as the `USIGN_SECRET_KEY` secret of the
 `github-pages` environment, which only the publish job uses and which only the
 `main` branch can deploy to. The build jobs compile third-party code and never
-see it.
+see it. Without the secret the publish job stops before anything is deployed.
 
 Packaging or patch changes for the same upstream version need a higher
 `PKG_RELEASE` in [build.conf](build.conf), because opkg only upgrades to a
@@ -116,7 +181,11 @@ tools/smoke-test.sh aarch64 out/aarch64/dropbear $DROPBEAR_VERSION
 
 ## Status
 
-- CI checks and qemu smoke tests run for every architecture on every build.
-- Not yet verified on real hardware for every architecture, nor with a
-  physical FIDO key. The smoke test proves ECDSA logins and that the sk key
-  types are advertised, not a hardware-key login.
+- `2026.94-1` is published for all seven architecture directories
+  (2026-11-27).
+- Every build passes the binary checks and the qemu login test.
+- The published signatures verify with a GL-E5800's own `usign`, and the
+  installer's `--dry-run` works there.
+- Not yet installed on real hardware, and not yet tested with a physical
+  security key: the smoke test proves ECDSA logins and that the sk key types
+  are advertised, not a hardware-key login.
