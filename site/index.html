@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>glinet-dropbear feed</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 16px/1.5 system-ui, sans-serif; max-width: 46rem; margin: 2rem auto; padding: 0 1rem; }
+  code, pre { font: 14px/1.4 ui-monospace, monospace; }
+  pre { padding: .75rem 1rem; overflow-x: auto; border: 1px solid #8884; border-radius: 6px; }
+</style>
+</head>
+<body>
+<h1>glinet-dropbear</h1>
+<p>Dropbear SSH <b>@VERSION@</b> for GL.iNet routers, built with OpenWrt's patches and
+options: ECDSA and FIDO/<code>sk-</code> keys enabled, static, for aarch64, ARMv7, MIPS and
+MIPSel. It runs in place of the firmware's Dropbear and rolls back automatically if the
+new server does not come up. Source and build details:
+<a href="https://github.com/DigitalCyberSoft/glinet-dropbear-feed">DigitalCyberSoft/glinet-dropbear-feed</a>.</p>
+<h2>Install (on the router, as root)</h2>
+<pre>curl -fsSL https://digitalcybersoft.github.io/glinet-dropbear-feed/setup.sh -o /tmp/setup.sh
+sh /tmp/setup.sh --dry-run
+sh /tmp/setup.sh</pre>
+<p>This feed is <b>signed</b>. The installer trusts only the key with fingerprint
+<code>@FINGERPRINT@</code> (<a href="feed.pub">feed.pub</a>), and opkg checks every
+update against it. No <code>--force-signature</code> is involved.</p>
+<h2>Undo</h2>
+<pre>opkg remove glinet-dropbear</pre>
+<p>This restores the firmware's own Dropbear binary. A firmware upgrade does the same.</p>
+</body>
+</html>

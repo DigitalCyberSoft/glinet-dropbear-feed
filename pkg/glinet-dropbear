@@ -1,0 +1,136 @@
+#!/bin/sh
+# glinet-dropbear: run this package's Dropbear build in place of the firmware's
+# /usr/sbin/dropbear, and roll back automatically if the restarted SSH server is
+# not listening.
+#
+# Only the binary changes. The firmware's init script and uci config
+# (/etc/init.d/dropbear, /etc/config/dropbear) stay as they are, and dbclient,
+# dropbearkey and scp are symlinks to /usr/sbin/dropbear, so they switch too.
+# The firmware's binary is saved once, on first apply, and put back by revert
+# (which "opkg remove glinet-dropbear" runs). A firmware upgrade also returns to
+# the firmware's own Dropbear.
+#
+#   glinet-dropbear apply    make this package's build active (postinst)
+#   glinet-dropbear revert   restore the firmware's binary (prerm)
+#   glinet-dropbear status   show what is active
+
+NEW=/usr/lib/glinet-dropbear/dropbear
+SYS=/usr/sbin/dropbear
+ORIG=/usr/lib/glinet-dropbear/dropbear.firmware
+
+log() {
+	echo "glinet-dropbear: $*"
+	logger -t glinet-dropbear "$*" 2>/dev/null
+}
+
+die() {
+	log "ERROR: $*"
+	exit 1
+}
+
+version_of() {
+	"$1" -V 2>&1 | sed -n 's/^Dropbear v//p' | head -n 1
+}
+
+same_file() {
+	[ "$(md5sum < "$1")" = "$(md5sum < "$2")" ]
+}
+
+# Rename into place: atomic on one filesystem, and a running server keeps the
+# old inode until it exits.
+install_binary() {
+	cp "$1" "$SYS.glinet-tmp" && chmod 755 "$SYS.glinet-tmp" && mv -f "$SYS.glinet-tmp" "$SYS"
+}
+
+# True when a dropbear that runs the CURRENT /usr/sbin/dropbear owns a listening
+# TCP socket. A process still running a replaced file shows "(deleted)" on its
+# exe link, so it does not count.
+listener_ok() {
+	for pid in $(netstat -lntp 2>/dev/null | sed -n 's|.* \([0-9][0-9]*\)/dropbear.*|\1|p' | sort -u); do
+		[ "$(readlink "/proc/$pid/exe" 2>/dev/null)" = "$SYS" ] && return 0
+	done
+	return 1
+}
+
+restart_and_check() {
+	/etc/init.d/dropbear restart >/dev/null 2>&1
+	n=0
+	while [ "$n" -lt 15 ]; do
+		listener_ok && return 0
+		sleep 1
+		n=$((n + 1))
+	done
+	return 1
+}
+
+apply() {
+	[ -x "$NEW" ] || die "$NEW is missing"
+	newver=$(version_of "$NEW")
+	[ -n "$newver" ] || die "$NEW does not run on this device; nothing was changed"
+
+	if same_file "$NEW" "$SYS"; then
+		log "Dropbear $newver is already active"
+		return 0
+	fi
+
+	# Save the firmware's binary only once: a later apply (package upgrade)
+	# must not overwrite it with an earlier build of this package.
+	if [ ! -f "$ORIG" ]; then
+		cp -p "$SYS" "$ORIG" || die "cannot save the firmware binary to $ORIG"
+	fi
+
+	was_up=0
+	listener_ok && was_up=1
+
+	install_binary "$NEW" || die "cannot install $NEW as $SYS"
+
+	if [ "$was_up" = 0 ]; then
+		log "Dropbear $newver installed; the SSH service was not running, so it was not restarted"
+		return 0
+	fi
+
+	if restart_and_check; then
+		log "Dropbear $newver is active (firmware binary saved as $ORIG)"
+		return 0
+	fi
+
+	log "Dropbear $newver did not come up; restoring the firmware binary"
+	install_binary "$ORIG" || die "could not restore $ORIG; run: cp $ORIG $SYS && /etc/init.d/dropbear restart"
+	restart_and_check || log "WARNING: the restored firmware Dropbear is not listening either"
+	die "rolled back to the firmware's Dropbear $(version_of "$SYS")"
+}
+
+revert() {
+	if [ ! -f "$ORIG" ]; then
+		log "no saved firmware binary; nothing to revert"
+		return 0
+	fi
+	if ! same_file "$ORIG" "$SYS"; then
+		was_up=0
+		listener_ok && was_up=1
+		install_binary "$ORIG" || die "cannot restore $ORIG as $SYS"
+		if [ "$was_up" = 1 ] && ! restart_and_check; then
+			log "WARNING: the firmware Dropbear is not listening after revert"
+		fi
+	fi
+	rm -f "$ORIG"
+	log "firmware Dropbear $(version_of "$SYS") restored"
+}
+
+status() {
+	echo "active:    Dropbear $(version_of "$SYS")  ($SYS)"
+	echo "packaged:  Dropbear $(version_of "$NEW")  ($NEW)"
+	[ -f "$ORIG" ] && echo "firmware:  Dropbear $(version_of "$ORIG")  (saved as $ORIG)"
+	if same_file "$NEW" "$SYS"; then
+		echo "state:     this package's build is active"
+	else
+		echo "state:     this package's build is NOT active (run: glinet-dropbear apply)"
+	fi
+}
+
+case "${1:-}" in
+	apply) apply ;;
+	revert) revert ;;
+	status) status ;;
+	*) echo "usage: glinet-dropbear apply|revert|status" >&2; exit 2 ;;
+esac

@@ -1,0 +1,90 @@
+/* Dropbear build options for glinet-dropbear.
+ *
+ * This is what OpenWrt's own dropbear package generates with its default
+ * configuration on a normal-flash device (not SMALL_FLASH, not
+ * LOW_MEMORY_FOOTPRINT): DB_OPT_COMMON and DB_OPT_CONFIG in
+ * package/network/services/dropbear/Makefile, values from its Config.in, at the
+ * OpenWrt commit recorded in build.conf (OPENWRT_COMMIT). Those defaults already
+ * enable ECDSA and FIDO/sk keys, which GL's Dropbear 2024.86 build lacks.
+ *
+ * OpenWrt also replaces DROPBEAR_CLI_MULTIHOP in src/sysoptions.h with 1;
+ * tools/build.sh does the same.
+ */
+
+/* DB_OPT_COMMON */
+#define IDENT_VERSION_PART ""
+#define COMPAT_USER_SHELLS "/bin/ash","/bin/sh"
+#define DEFAULT_PATH "/usr/sbin:/sbin:/usr/bin:/bin"
+#define DEFAULT_ROOT_PATH "/usr/sbin:/sbin:/usr/bin:/bin"
+#define DO_MOTD 0
+#define AUTH_TIMEOUT 300
+#define DEBUG_TRACE 0
+#define DEFAULT_IDLE_TIMEOUT 0
+#define DEFAULT_KEEPALIVE_LIMIT 3
+#define DEFAULT_KEEPALIVE 0
+#define DEFAULT_MAX_DURATION 0
+#define DEFAULT_RECV_WINDOW 262144
+#define KEX_REKEY_DATA 1073741824
+#define KEX_REKEY_TIMEOUT 28800
+#define MAX_AUTH_TRIES 10
+#define MAX_PUBKEY_QUERIES 15
+#define MAX_UNAUTH_CLIENTS 30
+#define MAX_UNAUTH_PER_IP 5
+#define UNAUTH_CLOSE_DELAY 0
+#define DROPBEAR_DEFAULT_RSA_SIZE 2048
+
+/* DB_OPT_CONFIG */
+#define DO_HOST_LOOKUP 0
+#define DROPBEAR_3DES 0
+#define DROPBEAR_AES128 1
+#define DROPBEAR_AES256 1
+#define DROPBEAR_CHACHA20POLY1305 1
+#define DROPBEAR_CLI_AGENTFWD 1
+#define DROPBEAR_CLI_ASKPASS_HELPER 0
+#define DROPBEAR_CLI_IMMEDIATE_AUTH 0
+#define DROPBEAR_CLI_LOCALTCPFWD 1
+#define DROPBEAR_CLI_NETCAT 0
+#define DROPBEAR_CLI_PROXYCMD 1
+#define DROPBEAR_CLI_REMOTETCPFWD 1
+#define DROPBEAR_CURVE25519 1
+#define DROPBEAR_DELAY_HOSTKEY 1
+#define DROPBEAR_DH_GROUP1 0
+#define DROPBEAR_DH_GROUP1_CLIENTONLY 1
+#define DROPBEAR_DH_GROUP14_SHA1 0
+#define DROPBEAR_DH_GROUP14_SHA256 1
+#define DROPBEAR_DH_GROUP16 0
+#define DROPBEAR_DSS 0
+#define DROPBEAR_ECC_256 1
+#define DROPBEAR_ECC_384 0
+#define DROPBEAR_ECC_521 0
+#define DROPBEAR_ECDH 0
+#define DROPBEAR_ECDSA 1
+#define DROPBEAR_ED25519 1
+#define DROPBEAR_ENABLE_CBC_MODE 0
+#define DROPBEAR_ENABLE_CTR_MODE 1
+#define DROPBEAR_ENABLE_GCM_MODE 0
+#define DROPBEAR_MLKEM768 0
+#define DROPBEAR_REEXEC 1
+#define DROPBEAR_RSA_SHA1 0
+#define DROPBEAR_RSA 1
+#define DROPBEAR_SFTPSERVER 1
+#define DROPBEAR_SHA1_96_HMAC 0
+#define DROPBEAR_SHA1_HMAC 0
+#define DROPBEAR_SHA2_256_HMAC 1
+#define DROPBEAR_SHA2_512_HMAC 0
+#define DROPBEAR_SK_ECDSA 1
+#define DROPBEAR_SK_ED25519 1
+#define DROPBEAR_SK_KEYS 1
+#define DROPBEAR_SMALL_CODE 1
+#define DROPBEAR_SNTRUP761 1
+#define DROPBEAR_SVR_AGENTFWD 1
+#define DROPBEAR_SVR_LOCALSTREAMFWD 1
+#define DROPBEAR_SVR_LOCALTCPFWD 1
+#define DROPBEAR_SVR_PUBKEY_OPTIONS 1
+#define DROPBEAR_SVR_REMOTETCPFWD 1
+#define DROPBEAR_USE_PASSWORD_ENV 1
+#define DROPBEAR_USE_SSH_CONFIG 0
+#define DROPBEAR_USER_ALGO_LIST 1
+#define DROPBEAR_X11FWD 0
+#define INETD_MODE 0
+#define LOG_COMMANDS 0

@@ -1,0 +1,97 @@
+name: build-feed
+
+# Build Dropbear for each GL CPU family, check and smoke-test every binary
+# under qemu, then sign and publish the opkg feed to GitHub Pages. Nothing
+# publishes unless every build and test passes. The signing key
+# (USIGN_SECRET_KEY) lives in the github-pages environment, which only the
+# publish job uses; the build jobs that compile third-party code never see it.
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '23 4 * * *'   # daily: builds a new upstream Dropbear release when one appears
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'publish even if this version is already live'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-feed
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.r.outputs.version }}
+      release: ${{ steps.r.outputs.release }}
+      publish: ${{ steps.r.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: r
+        run: tools/resolve-version.sh "${{ github.event_name }}" "${{ inputs.force || false }}" | tee -a "$GITHUB_OUTPUT"
+
+  build:
+    needs: resolve
+    if: needs.resolve.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: true
+      matrix:
+        cpu: [aarch64, arm, mips, mipsel]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install autoconf and qemu-user
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q autoconf qemu-user-static binfmt-support
+          ls /proc/sys/fs/binfmt_misc/ | grep -E '^qemu-(aarch64|arm|mips|mipsel)$'
+      - name: Fetch and verify the Dropbear source
+        run: tools/fetch-source.sh "${{ needs.resolve.outputs.version }}" src
+      - name: Install zig
+        run: tools/setup-zig.sh >> "$GITHUB_PATH"
+      - name: Build
+        run: tools/build.sh "${{ matrix.cpu }}" "${{ needs.resolve.outputs.version }}" src "out/${{ matrix.cpu }}"
+      - name: Check the binary
+        run: tools/check-binary.sh "${{ matrix.cpu }}" "out/${{ matrix.cpu }}/dropbear"
+      - name: Smoke-test under qemu
+        run: tools/smoke-test.sh "${{ matrix.cpu }}" "out/${{ matrix.cpu }}/dropbear" "${{ needs.resolve.outputs.version }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.cpu }}
+          path: out/${{ matrix.cpu }}/dropbear
+          if-no-files-found: error
+
+  publish:
+    needs: [resolve, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Install python3-cryptography
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q python3-cryptography
+      - name: Assemble and sign the feed
+        env:
+          USIGN_SECRET_KEY: ${{ secrets.USIGN_SECRET_KEY }}
+        run: tools/assemble_site.sh dist _site "${{ needs.resolve.outputs.version }}" "${{ needs.resolve.outputs.release }}"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4

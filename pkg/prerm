@@ -1,0 +1,5 @@
+#!/bin/sh
+# Put the firmware's Dropbear back before this package's files disappear.
+# Skip in an offline image root.
+[ -n "$IPKG_INSTROOT" ] && exit 0
+exec /usr/sbin/glinet-dropbear revert

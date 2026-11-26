@@ -1,0 +1,14 @@
+These patches are copied unmodified from OpenWrt:
+
+  repository  https://github.com/openwrt/openwrt
+  commit      c82de84430c3a0298bb782d180a80f2bf27f43bc (2026-10-03)
+  path        package/network/services/dropbear/patches/
+
+They are the patch set OpenWrt applies to Dropbear 2026.94. The one GL routers
+depend on is 100-pubkey_path.patch: it makes root read its keys from
+/etc/dropbear/authorized_keys. Without it Dropbear reads /root/.ssh/, and keys
+managed by the firmware (and by panels such as glinet-sshkeymanagement) are
+silently ignored.
+
+tools/build.sh applies all of them in order and fails if any does not apply,
+so a new upstream release that breaks a patch never publishes.

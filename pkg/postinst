@@ -1,0 +1,6 @@
+#!/bin/sh
+# Make the packaged Dropbear active; glinet-dropbear rolls back by itself if the
+# restarted server does not listen, and then fails so opkg reports it.
+# Skip in an offline image root.
+[ -n "$IPKG_INSTROOT" ] && exit 0
+exec /usr/sbin/glinet-dropbear apply
