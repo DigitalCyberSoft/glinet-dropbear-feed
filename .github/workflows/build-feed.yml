@@ -76,7 +76,7 @@ jobs:
       id-token: write
     environment:
       name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+      url: ${{ steps.deploy.outputs.page_url || steps.deploy_retry.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -93,5 +93,17 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
+      # deploy-pages can query the run's artifacts before the upload above is
+      # listed ("No artifacts named github-pages were found", run 45868689166),
+      # a GitHub-side transient rather than a content error. One retry after a
+      # pause absorbs it, as in glinet-tailscale-feed; a second failure still
+      # fails the job.
       - id: deploy
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+      - name: Wait out the Pages transient
+        if: steps.deploy.outcome == 'failure'
+        run: sleep 45
+      - id: deploy_retry
+        if: steps.deploy.outcome == 'failure'
         uses: actions/deploy-pages@v4
